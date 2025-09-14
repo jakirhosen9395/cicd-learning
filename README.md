@@ -84,51 +84,45 @@ A hands-on, beginner-friendly DevOps sandbox that teaches **end-to-end CI/CD** w
 
 ```mermaid
 flowchart LR
-  %% ---------- Groups ----------
-  subgraph DEV[Developer]
+  %% Groups
+  subgraph DEV [Developer]
     direction TB
     A([Push to GitHub])
-    N[Notify developer (Slack or Email)]
+    N[Notify developer: Slack or Email]
   end
 
-  subgraph CI[CI Pipeline (Jenkins)]
+  subgraph CI [CI Pipeline - Jenkins]
     direction TB
-    B([Pipeline triggered])
-    C([Checkout source])
-    D([Run unit tests + coverage])
+    B[Pipeline triggered]
+    C[Checkout source]
+    D[Unit tests + coverage]
     DQ{Tests pass?}
-    E([SonarQube scan])
+    E[SonarQube scan]
     EQ{Quality Gate pass?}
-    F([Build Docker image])
-    G([Push image to Docker Hub])
-    H([Update deploy-repo manifest])
+    F[Build Docker image]
+    G[Push image to Docker Hub]
+    H[Update deploy-repo manifest]
   end
 
-  subgraph DEPLOY[Deployment Server]
+  subgraph DEPLOY [Deployment Server]
     direction TB
     I([SSH to server & run container])
     IS{Deploy OK?}
-    J([App available on 192.168.56.51:9001])
+    J[App available on 192.168.56.51:9001]
   end
 
-  %% ---------- Happy path ----------
+  %% Happy path
   A --> B --> C --> D --> DQ
   DQ -- Yes --> E --> EQ
   EQ -- Yes --> F --> G --> H --> I --> IS --> J
 
-  %% ---------- Fail & notify ----------
+  %% Fail & notify
   DQ -- No --> N
   EQ -- No --> N
   IS -- No --> N
 
-  %% Helper edge to keep A and I visually closer
+  %% Visual tweak to keep A and I closer
   A -.-> I
-
-  %% Styles
-  classDef fail fill:#ffe6e6,stroke:#cc0000,stroke-width:1px,color:#000;
-  classDef good fill:#e7f7ee,stroke:#3aaf85,stroke-width:1px,color:#000;
-  class N fail
-  class J good
 ```
 
 ---
