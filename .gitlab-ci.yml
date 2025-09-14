@@ -1,0 +1,124 @@
+# -----------------------------------------------------------
+# Global Variables
+# -----------------------------------------------------------
+variables:
+  IMAGE_TAG: $CI_PIPELINE_IID                # Unique image tag for each pipeline run
+  IMAGE_NAME: "goapp"                        # Docker image name
+  CONTAINER_NAME: "goapp"                    # Docker container name
+
+  DOCKERHUB_USERNAME: "jakirhosen9395"       # DockerHub username
+  # DOCKER Hub token is set in GitLab CI/CD settings as a secret variable
+
+  # SonarQube variables is set in GitLab CI/CD settings as secret variables
+  SONAR_HOST_URL: "http://192.168.56.52"     # SonarQube server URL
+  SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar" # Location for SonarQube cache
+  GIT_DEPTH: "0"                             # Fetch all branches for analysis
+
+# -----------------------------------------------------------
+# Commands to run before each job
+# -----------------------------------------------------------
+before_script:
+  # Log in to DockerHub using the provided token
+  - echo $DOCKERHUB_TOKEN | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+
+# -----------------------------------------------------------
+# Define the stages of the pipeline
+# -----------------------------------------------------------
+stages:
+  - test          # Run tests
+  - build-sonar   # Run code analysis with SonarQube
+  - build         # Build Docker image
+  - push          # Push image to DockerHub
+  - deploy        # Deploy the application
+
+# -----------------------------------------------------------
+# Stage 1: Run Go tests and collect coverage
+# -----------------------------------------------------------
+test-app:
+  stage: test
+  tags: [build-server]                       # Specify runner tag
+  before_script:
+    - export PATH=$PATH:/usr/local/go/bin    # Ensure Go is available
+  script:
+    - go mod download                        # Download dependencies
+    - go test -v ./... -coverprofile=coverage.out # Run tests and generate coverage report
+  artifacts:
+    when: always
+    paths: [coverage.out]                    # Save coverage report as artifact
+  only: [go-app]                             # Run only for 'go-app' branch
+
+# -----------------------------------------------------------
+# Stage 2: Run SonarQube code analysis
+# -----------------------------------------------------------
+build-app-sonar:
+  stage: build-sonar
+  tags: 
+    - build-server
+  image: 
+    name: sonarsource/sonar-scanner-cli:11   # Use SonarQube scanner image
+    entrypoint: [""]
+
+  cache:
+    key: "sonar-cache-$CI_COMMIT_REF_SLUG"   # Cache key for SonarQube analysis
+    paths:
+      - .sonar/cache                         # Cache SonarQube files
+
+  script:
+    # Run SonarQube scanner inside Docker container
+    - >
+      docker run --rm
+      -e SONAR_HOST_URL="$SONAR_HOST_URL"
+      -e SONAR_TOKEN="$SONAR_TOKEN"
+      -v "$CI_PROJECT_DIR":"$CI_PROJECT_DIR"
+      -v "$SONAR_USER_HOME":"$SONAR_USER_HOME"
+      -w "$CI_PROJECT_DIR"
+      sonarsource/sonar-scanner-cli:11
+      sonar-scanner
+      -Dsonar.host.url="$SONAR_HOST_URL"
+      -Dsonar.login="$SONAR_TOKEN"
+      -Dsonar.projectKey="gitlab-cicd"
+      -Dsonar.projectName="gitlab-cicd"
+      -Dsonar.sources=.
+      -Dsonar.tests=.
+      -Dsonar.go.coverage.reportPaths=coverage.out
+  allow_failure: true                        # Allow pipeline to continue if this fails
+  only:
+    - go-app
+
+# -----------------------------------------------------------
+# Stage 3: Build Docker image
+# -----------------------------------------------------------
+build-app:
+  stage: build
+  tags: 
+    - build-server
+  script:
+    - docker build -t $DOCKERHUB_USERNAME/$IMAGE_NAME:$IMAGE_TAG . # Build Docker image
+  only:
+    - go-app
+
+# -----------------------------------------------------------
+# Stage 4: Push Docker image to DockerHub
+# -----------------------------------------------------------
+push-image:
+  stage: push
+  tags: 
+    - build-server
+  script:
+    - docker push "$DOCKERHUB_USERNAME/$IMAGE_NAME":$IMAGE_TAG    # Push image to DockerHub
+  only:
+    - go-app
+
+# -----------------------------------------------------------
+# Stage 5: Deploy the application using Docker
+# -----------------------------------------------------------
+deploy-app:
+  stage: deploy
+  tags:
+    - deploy-server
+  script:
+    - docker pull $DOCKERHUB_USERNAME/$IMAGE_NAME:$IMAGE_TAG      # Pull image from DockerHub
+    - docker rm -f ${CONTAINER_NAME}                              # Remove old container if exists
+    - docker run -d --name ${CONTAINER_NAME} -p 9000:9000 $DOCKERHUB_USERNAME/$IMAGE_NAME:$IMAGE_TAG # Run new container
+  only:
+    - go-app

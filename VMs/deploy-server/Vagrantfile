@@ -1,0 +1,17 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+# cicd-learning/VMs/deploy-server/Vagrantfile
+Vagrant.configure("2") do |config|
+  config.vm.box = "alvistack/ubuntu-24.04"
+
+  # Deployment Server
+  config.vm.define "deployment" do |node|
+    node.vm.hostname = "deployment-server"
+    node.vm.network "private_network", ip: "192.168.56.51"
+
+    node.vm.provider "libvirt" do |lv|
+      lv.memory = 2048   # 2 GB for Deployment
+      lv.cpus   = 2
+    end
+  end
+end
