@@ -10,7 +10,6 @@ A hands-on, beginner-friendly DevOps sandbox that teaches **end-to-end CI/CD** w
 .
 ├── deploy-repo
 │   ├── go-app-cicd.yaml          # Kubernetes/Docker manifest updated by pipeline
-│   └── README.md                 # Notes for the deploy repo
 ├── deploy-server-setup.sh        # Deploy server setup (Docker, SSH, GitLab Runner)
 ├── developer-repo
 │   ├── go.mod                    # Go module file
@@ -84,16 +83,41 @@ A hands-on, beginner-friendly DevOps sandbox that teaches **end-to-end CI/CD** w
 ## 🔄 CI/CD at a glance
 
 ```mermaid
-flowchart TD
-    A[Developer pushes to GitHub] --> B[Jenkins Pipeline triggers]
-    B --> C[Checkout source]
-    C --> D[Run unit tests + coverage]
-    D --> E[SonarQube scan]
-    E --> F[Build Docker image]
-    F --> G[Push image to Docker Hub]
-    G --> H[Update deploy-repo manifest]
-    H --> I[SSH to deploy server & run container]
-    I --> J[App available on 192.168.56.51:9001]
+flowchart LR
+  %% ---------- Layout groups ----------
+  subgraph DEV[Developer]
+    A(Developer pushes to GitHub)
+    N[[Notify developer (Slack/Email)]]
+  end
+
+  subgraph CI[CI Pipeline (Jenkins)]
+    B[Pipeline triggered]
+    C[Checkout source]
+    D[Run unit tests + coverage]
+    DQ{Tests pass?}
+    E[SonarQube scan]
+    EQ{Quality Gate pass?}
+    F[Build Docker image]
+    G[Push image to Docker Hub]
+    H[Update deploy-repo manifest]
+  end
+
+  subgraph DEPLOY[Deployment Server]
+    I(SSH to server & run container)
+    IS{Deploy OK?}
+    J[[App available on 192.168.56.51:9001]]
+  end
+
+  %% ---------- Main happy path ----------
+  A --> B --> C --> D --> DQ
+  DQ -- Yes --> E --> EQ
+  EQ -- Yes --> F --> G --> H --> I --> IS --> J
+
+  %% ---------- Failure & notifications ----------
+  DQ -- No --> N
+  EQ -- No --> N
+  IS -- No --> N
+
 ```
 
 ---
@@ -137,18 +161,6 @@ flowchart TD
 
 ---
 
-## 🧰 Troubleshooting (quick fixes)
-
-| Symptom | Likely Cause | Fix |
-|---|---|---|
-| `sonar-scanner: command not found` | Shell agent not using scanner tool | Add `tool 'sonar7.2'` in Jenkins and prepend `${SCANNER_HOME}/bin` to PATH, or use CLI |
-| `File index.html can't be indexed twice` | `sonar.sources` and `sonar.tests` overlap | In `sonar-project.properties` add `sonar.test.inclusions=**/*_test.go` and exclude HTML from tests |
-| `permission denied: docker` | Jenkins or gitlab-runner not in `docker` group | `sudo usermod -aG docker jenkins && sudo systemctl restart jenkins` |
-| Shell runner ignores `image:` | Shell executors don’t run job images | Wrap scanners in `docker run ...` |
-| App not reachable on 9001 | Container not running or wrong port | Check `docker logs`, verify `-p 9001:9000` and firewall |
-
----
-
 ## ✅ Checklist for new learners
 
 - [ ] Bring up the three VMs with Vagrant.  
@@ -170,3 +182,4 @@ flowchart TD
 ---
 
 **Author:** [@jakirhosen9395](https://github.com/jakirhosen9395) — this repository is a guided lab for learning modern CI/CD.
+
