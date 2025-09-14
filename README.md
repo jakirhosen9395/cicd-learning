@@ -85,44 +85,39 @@ A hands-on, beginner-friendly DevOps sandbox that teaches **end-to-end CI/CD** w
 ```mermaid
 flowchart LR
   %% Groups
-  subgraph DEV [Developer]
-    direction TB
+  subgraph DEV [👨‍💻 Developer]
     A([Push to GitHub])
-    N[Notify developer: Slack or Email]
+    N[[Notify: Slack/Email]]
   end
 
-  subgraph CI [CI Pipeline - Jenkins]
-    direction TB
-    B[Pipeline triggered]
-    C[Checkout source]
-    D[Unit tests + coverage]
-    DQ{Tests pass?}
-    E[SonarQube scan]
-    EQ{Quality Gate pass?}
-    F[Build Docker image]
-    G[Push image to Docker Hub]
-    H[Update deploy-repo manifest]
+  subgraph CI [⚙️ CI Pipeline - Jenkins]
+    B([Pipeline triggered])
+    C([Checkout source])
+    D([Unit tests + coverage])
+    DQ{✅ Tests pass?}
+    E([SonarQube scan])
+    EQ{✅ Quality Gate pass?}
+    F([Build Docker image])
+    G([Push to Docker Hub])
+    H([Update manifest])
   end
 
-  subgraph DEPLOY [Deployment Server]
-    direction TB
-    I([SSH to server & run container])
-    IS{Deploy OK?}
-    J[App available on 192.168.56.51:9001]
+  subgraph DEPLOY [🚀 Deployment Server]
+    I([SSH: Run container])
+    IS{✅ Deploy OK?}
+    J([App live: 192.168.56.51:9001])
   end
 
-  %% Happy path
+  %% Main happy path
   A --> B --> C --> D --> DQ
   DQ -- Yes --> E --> EQ
   EQ -- Yes --> F --> G --> H --> I --> IS --> J
 
-  %% Fail & notify
+  %% Failures
   DQ -- No --> N
   EQ -- No --> N
   IS -- No --> N
 
-  %% Visual tweak to keep A and I closer
-  A -.-> I
 ```
 
 ---
